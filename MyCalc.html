@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FCalc</title>
+    <meta name="theme-color" content="#ff9f0a">
+    <meta name="description" content="FCalc：支持公式输入、实时预览与历史记录的数学计算器。">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jQuery (MathQuill 依赖) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    
+    <!-- MathQuill CSS & JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+    
+    <!-- Math.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+
+    <style>
+        /* --- CSS 变量定义 (主题系统) --- */
+        :root {
+            /* 深色模式 */
+            --bg-app: #000000;
+            --bg-keyboard: #000000;
+            --bg-screen: #111111;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border-color: #222222;
+            
+            --btn-func-bg: #2c2c2c;
+            --btn-func-text: #ffffff;
+            --btn-num-bg: #4a4a4a;
+            --btn-num-text: #ffffff;
+            --btn-op-bg: #ff9f0a;
+            --btn-op-text: #ffffff;
+            
+            --cursor-color: #FFC107;
+            --selection-bg: rgba(255, 193, 7, 0.3);
+            
+            --history-item-hover: #1c1c1c;
+            
+            --modal-bg: #1f1f1f;
+            --modal-text: #ffffff;
+        }
+
+        /* 浅色模式覆盖 (默认) */
+        [data-theme="light"] {
+            --bg-app: #f2f2f7;
+            --bg-keyboard: #ffffff;
+            --bg-screen: #ffffff;
+            --text-primary: #000000;
+            --text-secondary: #6b7280;
+            --border-color: #e5e5e5;
+            
+            --btn-func-bg: #e5e7eb;
+            --btn-func-text: #000000;
+            --btn-num-bg: #f3f4f6;
+            --btn-num-text: #000000;
+            --btn-op-bg: #ff9f0a;
+            --btn-op-text: #ffffff;
+            
+            --cursor-color: #d97706;
+            --selection-bg: rgba(217, 119, 6, 0.2);
+            
+            --history-item-hover: #f3f4f6;
+            
+            --modal-bg: #ffffff;
+            --modal-text: #1f2937;
+        }
+
+        /* 全局设置 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            overflow: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* 动态颜色类 */
+        .app-bg { background-color: var(--bg-app); }
+        .keyboard-bg { background-color: var(--bg-keyboard); }
+        .screen-bg { background-color: var(--bg-screen); }
+        .text-pri { color: var(--text-primary); }
+        .text-sec { color: var(--text-secondary); }
+        .border-theme { border-color: var(--border-color); }
+
+        /* MathQuill 样式覆盖 */
+        #math-field {
+            font-size: 2rem;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+            min-height: 60px;
+            cursor: text;
+            white-space: nowrap;
+            flex-shrink: 0; 
+        }
+
+        .mq-editable-field {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .mq-cursor {
+            border-left: 2px solid var(--cursor-color) !important;
+            background-color: transparent !important;
+        }
+        
+        .mq-selection {
+            background-color: var(--selection-bg) !important;
+            border-color: var(--cursor-color) !important;
+        }
+        
+        .mq-math-mode .mq-fraction-line, 
+        .mq-math-mode .mq-sqrt-prefix, 
+        .mq-math-mode .mq-sqrt-stem {
+            border-color: var(--text-primary) !important;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            border-radius: 0.5rem;
+            transition: filter 0.1s, transform 0.05s;
+            user-select: none;
+            cursor: pointer;
+            height: 100%;
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .btn:active {
+            filter: brightness(0.9);
+            transform: scale(0.98);
+        }
+        [data-theme="dark"] .btn:active {
+            filter: brightness(1.3);
+        }
+
+        .btn-dark { background-color: var(--btn-func-bg); color: var(--btn-func-text); }
+        .btn-num { background-color: var(--btn-num-bg); color: var(--btn-num-text); }
+        .btn-op { background-color: var(--btn-op-bg); color: var(--btn-op-text); font-size: 1.5rem; }
+
+        /* 滚动条 */
+        #history {
+            -webkit-overflow-scrolling: touch;
+        }
+        #history::-webkit-scrollbar {
+            width: 4px;
+        }
+        #history::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #history::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+        
+        /* 输入框容器滚动 */
+        #math-scroll-container {
+            -webkit-overflow-scrolling: touch;
+            /* 强制关闭平滑滚动，确保 JS 控制位置时瞬时到达 */
+            scroll-behavior: auto !important;
+        }
+        #math-scroll-container::-webkit-scrollbar {
+            height: 2px;
+        }
+        #math-scroll-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #math-scroll-container::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+        }
+
+        /* 历史记录项 */
+        .history-item {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            opacity: 0.7;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+        .history-item:hover {
+            opacity: 1;
+            background-color: var(--history-item-hover);
+        }
+        .history-eq {
+            font-size: 1rem;
+            margin-bottom: 2px;
+            color: var(--text-primary);
+        }
+        .history-res {
+            font-size: 1.2rem;
+            color: var(--btn-op-bg);
+            font-weight: 600;
+        }
+
+        /* 模态框动画 */
+        #settings-modal {
+            transition: opacity 0.2s ease-in-out;
+        }
+        #settings-modal.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #settings-modal:not(.hidden) {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--btn-op-bg);
+            margin-top: -8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col" data-theme="light">
+
+    <!-- 1. 历史记录区域 -->
+    <div id="history" class="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col pb-4 app-bg">
+        <div class="fixed top-4 left-4 z-30">
+            <button onclick="toggleSettings()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-500/20 text-sec transition-colors bg-transparent">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="mt-auto w-full">
+            <div id="history-list">
+                <div id="empty-msg" class="text-center text-sec text-sm mt-10 mb-4">无历史记录</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 屏幕区域 -->
+    <div id="screen-area" class="screen-bg p-2 z-10 flex flex-col justify-center relative border-b border-theme shrink-0" style="min-height: 130px;">
+        <button onclick="clearField()" class="absolute left-4 top-4 text-sec hover:text-pri p-2 z-20">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+
+        <!-- 修改：右侧内边距减小为 pr-5 (20px) -->
+        <div id="math-scroll-container" class="w-full overflow-x-auto mb-1 pl-12 pr-5 flex">
+            <div id="math-field" class="ml-auto"></div>
+        </div>
+        
+        <div id="preview-result" class="text-sec text-lg h-6 font-light pr-6 w-full text-right"></div>
+    </div>
+
+    <!-- 3. 键盘区域 -->
+    <div id="keyboard" class="keyboard-bg p-2 pb-8 grid grid-rows-6 gap-2 shrink-0" style="height: 60vh; max-height: 520px;">
+        <div class="grid grid-cols-5 gap-2 row-span-1">
+            <div class="btn btn-dark" onclick="writeCmd('\\sin')">sin</div>
+            <div class="btn btn-dark" onclick="writeCmd('\\cos')">cos</div>
+            <div class="btn btn-dark" onclick="writeCmd('\\tan')">tan</div>
+            <div class="btn btn-dark" onclick="writeCmd('^')">xʸ</div>
+            <div class="btn btn-dark" onclick="writeCmd('\\sqrt')">√</div>
+        </div>
+        <div class="grid grid-cols-5 gap-2 row-span-1">
+            <div class="btn btn-dark" onclick="writeCmd('\\ln')">ln</div>
+            <div class="btn btn-dark" onclick="writeCmd('\\log')">log</div>
+            <div class="btn btn-dark italic" onclick="writeCmd('e')">e</div>
+            <div class="btn btn-dark" onclick="writeAns()">ans</div>
+            <div class="btn btn-dark" onclick="writeCmd('\\pi')">π</div>
+        </div>
+        <div class="grid grid-cols-5 gap-2 row-span-1">
+            <div class="btn btn-num" onclick="writeCmd('7')">7</div>
+            <div class="btn btn-num" onclick="writeCmd('8')">8</div>
+            <div class="btn btn-num" onclick="writeCmd('9')">9</div>
+            <div class="btn btn-dark" onclick="writeParens()">()</div>
+            <div class="btn btn-dark" onclick="backspace()">⌫</div>
+        </div>
+        <div class="grid grid-cols-5 gap-2 row-span-1">
+            <div class="btn btn-num" onclick="writeCmd('4')">4</div>
+            <div class="btn btn-num" onclick="writeCmd('5')">5</div>
+            <div class="btn btn-num" onclick="writeCmd('6')">6</div>
+            <div class="btn btn-op" onclick="writeCmd('+')">+</div>
+            <div class="btn btn-op" onclick="writeCmd('-')">−</div>
+        </div>
+        <div class="grid grid-cols-5 gap-2 row-span-1">
+            <div class="btn btn-num" onclick="writeCmd('1')">1</div>
+            <div class="btn btn-num" onclick="writeCmd('2')">2</div>
+            <div class="btn btn-num" onclick="writeCmd('3')">3</div>
+            <div class="btn btn-op" onclick="writeCmd('\\times')">×</div>
+            <div class="btn btn-op" onclick="writeCmd('\\div')">÷</div>
+        </div>
+        <div class="grid grid-cols-5 gap-2 row-span-1">
+            <div class="btn btn-num" onclick="writeCmd('0')">0</div>
+            <div class="btn btn-num" onclick="writeCmd('.')">.</div>
+            <div class="btn btn-dark" onclick="writeCmd('E')">EE</div>
+            <div class="btn btn-op col-span-2" onclick="calculateResult()">↩︎</div>
+        </div>
+    </div>
+
+    <!-- 4. 设置模态框 -->
+    <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+        <div class="w-80 rounded-xl p-6 shadow-2xl" style="background-color: var(--modal-bg); color: var(--modal-text);">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">设置</h2>
+                <button onclick="toggleSettings()" class="p-1 hover:bg-gray-500/20 rounded-full transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-medium mb-2 opacity-80">外观模式</label>
+                <div class="flex bg-gray-500/10 p-1 rounded-lg">
+                    <button onclick="setTheme('dark')" id="theme-dark-btn" class="flex-1 py-2 rounded-md text-sm font-medium transition-all bg-transparent opacity-60">深色</button>
+                    <button onclick="setTheme('light')" id="theme-light-btn" class="flex-1 py-2 rounded-md text-sm font-medium transition-all bg-transparent opacity-60">浅色</button>
+                </div>
+            </div>
+            <div class="mb-8">
+                <div class="flex justify-between mb-2">
+                    <label class="text-sm font-medium opacity-80">小数点后位数</label>
+                    <span id="precision-val" class="text-sm font-bold text-yellow-500">10</span>
+                </div>
+                <input type="range" min="0" max="15" value="10" oninput="updatePrecision(this.value)" class="w-full">
+                <div class="flex justify-between text-xs opacity-40 mt-1">
+                    <span>0</span>
+                    <span>15</span>
+                </div>
+            </div>
+            <button onclick="clearHistory()" class="w-full py-3 rounded-lg font-medium text-red-500 bg-red-500/10 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                清除历史记录
+            </button>
+        </div>
+    </div>
+
+    <script>
+        var MQ = MathQuill.getInterface(2);
+        var mathFieldSpan = document.getElementById('math-field');
+        var previewSpan = document.getElementById('preview-result');
+        var scrollContainer = document.getElementById('math-scroll-container');
+        
+        var historyDiv = document.getElementById('history');
+        var historyList = document.getElementById('history-list');
+        var emptyMsg = document.getElementById('empty-msg');
+        
+        var historyData = [];
+        var lastResultValue = null;
+        const MAX_HISTORY_COUNT = 50;
+
+        var currentPrecision = 10;
+        var currentTheme = 'light';
+
+        var mathField = MQ.MathField(mathFieldSpan, {
+            spaceBehavesLikeTab: true,
+            handlers: {
+                edit: function() {
+                    tryLiveEvaluate();
+                    
+                    // --- 滚动优化逻辑 ---
+                    // 1. 同步滚动：立即执行，防止PC端和部分手机闪烁
+                    scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+                    
+                    // 2. 异步补救：处理移动端可能的渲染延迟，确保长公式右侧完全可见
+                    setTimeout(() => {
+                       scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+                    }, 0);
+                },
+                enter: calculateResult
+            }
+        });
+
+        var hiddenTextarea = mathFieldSpan.querySelector('textarea');
+        if (hiddenTextarea) {
+            hiddenTextarea.setAttribute('readonly', 'readonly'); 
+            hiddenTextarea.setAttribute('inputmode', 'none');
+        }
+
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && hiddenTextarea) {
+                hiddenTextarea.setAttribute('readonly', 'readonly');
+                hiddenTextarea.setAttribute('inputmode', 'none');
+            }
+        });
+
+        mathField.focus();
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.btn') && !e.target.closest('.history-item') && !e.target.closest('#settings-modal button') && !e.target.closest('input')) {
+                if (!document.getElementById('settings-modal').classList.contains('hidden')) return;
+                mathField.focus();
+            }
+        });
+
+        function toggleSettings() {
+            var modal = document.getElementById('settings-modal');
+            modal.classList.toggle('hidden');
+            updateThemeUI();
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.body.setAttribute('data-theme', theme);
+            updateThemeUI();
+            mathField.blur();
+            setTimeout(() => mathField.focus(), 10);
+        }
+
+        function updateThemeUI() {
+            const darkBtn = document.getElementById('theme-dark-btn');
+            const lightBtn = document.getElementById('theme-light-btn');
+            const activeClass = ['bg-white', 'text-black', 'shadow-sm', 'opacity-100'];
+            const activeClassDark = ['bg-[#4a4a4a]', 'text-white', 'shadow-sm', 'opacity-100'];
+            const inactiveClass = ['bg-transparent', 'opacity-60'];
+
+            darkBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-all " + inactiveClass.join(' ');
+            lightBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-all " + inactiveClass.join(' ');
+
+            if (currentTheme === 'dark') {
+                darkBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-all " + activeClassDark.join(' ');
+            } else {
+                 lightBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-all bg-white text-black shadow-sm opacity-100";
+            }
+        }
+        
+        updateThemeUI();
+
+        function updatePrecision(val) {
+            currentPrecision = parseInt(val);
+            document.getElementById('precision-val').innerText = currentPrecision;
+            tryLiveEvaluate();
+        }
+
+        function clearHistory() {
+            historyData = [];
+            historyList.innerHTML = '';
+            var msg = document.createElement('div');
+            msg.id = 'empty-msg';
+            msg.className = 'text-center text-sec text-sm mt-10 mb-4';
+            msg.innerText = '无历史记录';
+            historyList.appendChild(msg);
+            emptyMsg = msg;
+            toggleSettings();
+        }
+
+        function writeCmd(cmd) {
+            const funcsWithParens = ['\\sin', '\\cos', '\\tan', '\\ln', '\\log'];
+            if (cmd === '\\div') mathField.cmd('/');
+            else if (cmd === '\\times') mathField.cmd('\\times');
+            else if (cmd === 'E') mathField.write('E');
+            else if (funcsWithParens.includes(cmd)) {
+                mathField.cmd(cmd); 
+                mathField.write('\\left(\\right)');
+                mathField.keystroke('Left');
+            } else {
+                mathField.cmd(cmd);
+            }
+            mathField.focus();
+        }
+
+        function writeParens() {
+            mathField.write('\\left(\\right)');
+            mathField.keystroke('Left');
+            mathField.focus();
+        }
+
+        function writeAns() {
+            if (lastResultValue !== null) mathField.write(lastResultValue.toString());
+            mathField.focus();
+        }
+
+        function backspace() {
+            var pre = mathField.latex();
+            mathField.keystroke('Backspace');
+            var post = mathField.latex();
+            const funcs = [
+                { cmd: '\\sin', fragment: 'si', del: 2 },
+                { cmd: '\\cos', fragment: 'co', del: 2 },
+                { cmd: '\\tan', fragment: 'ta', del: 2 },
+                { cmd: '\\ln',  fragment: 'l',  del: 1 },
+                { cmd: '\\log', fragment: 'lo', del: 2 }
+            ];
+            for (let f of funcs) {
+                if (pre.endsWith(f.cmd) && post.endsWith(f.fragment)) {
+                    for(let i=0; i<f.del; i++) mathField.keystroke('Backspace');
+                    break;
+                }
+            }
+            mathField.focus();
+        }
+
+        function clearField() {
+            mathField.latex('');
+            previewSpan.innerText = '';
+            mathField.focus();
+        }
+
+        function latexToMathJs(latex) {
+            let text = latex;
+            text = text.replaceAll('\\cdot', '*').replaceAll('\\times', '*').replaceAll('\\div', '/');
+            
+            function findClosingBraceIndex(str, startIdx) {
+                let depth = 1;
+                for (let i = startIdx + 1; i < str.length; i++) {
+                    if (str[i] === '{') depth++;
+                    else if (str[i] === '}') depth--;
+                    if (depth === 0) return i;
+                }
+                return -1;
+            }
+
+            while (text.indexOf('\\frac') !== -1) {
+                let i = text.indexOf('\\frac');
+                let brace1Start = text.indexOf('{', i);
+                if (brace1Start === -1) break;
+                let brace1End = findClosingBraceIndex(text, brace1Start);
+                if (brace1End === -1) break;
+                let num = text.substring(brace1Start + 1, brace1End);
+                let brace2Start = text.indexOf('{', brace1End);
+                if (brace2Start === -1) break;
+                let brace2End = findClosingBraceIndex(text, brace2Start);
+                if (brace2End === -1) break;
+                let den = text.substring(brace2Start + 1, brace2End);
+                text = text.substring(0, i) + `((${num})/(${den}))` + text.substring(brace2End + 1);
+            }
+
+            while (text.indexOf('\\sqrt') !== -1) {
+                let i = text.indexOf('\\sqrt');
+                let braceStart = text.indexOf('{', i);
+                if (braceStart === -1) break;
+                let braceEnd = findClosingBraceIndex(text, braceStart);
+                if (braceEnd === -1) break;
+                let content = text.substring(braceStart + 1, braceEnd);
+                text = text.substring(0, i) + `sqrt(${content})` + text.substring(braceEnd + 1);
+            }
+
+            text = text.replaceAll('\\sin', 'sin').replaceAll('\\cos', 'cos').replaceAll('\\tan', 'tan')
+                       .replaceAll('\\ln', 'log').replaceAll('\\log', 'log10').replaceAll('\\pi', 'pi');
+            text = text.replaceAll('\\left', '').replaceAll('\\right', '').replaceAll('{', '(').replaceAll('}', ')');
+            return text;
+        }
+
+        function tryLiveEvaluate() {
+            var latex = mathField.latex();
+            if (!latex) {
+                previewSpan.innerText = '';
+                return;
+            }
+            try {
+                var expr = latexToMathJs(latex);
+                var result = math.evaluate(expr, { e: math.e });
+                if (typeof result === 'function' || typeof result === 'undefined') {
+                    previewSpan.innerText = "";
+                    return;
+                }
+                previewSpan.innerText = "= " + formatResult(result);
+            } catch (e) {
+                previewSpan.innerText = '';
+            }
+        }
+
+        function formatResult(val) {
+            if (typeof val === 'undefined' || isNaN(val)) return "Error";
+            let formatted = math.format(val, {precision: currentPrecision});
+            if (String(formatted).length > 15 || Math.abs(val) > 1e9 || (Math.abs(val) < 1e-4 && val !== 0)) {
+                 formatted = math.format(val, {precision: 5, notation: 'exponential'});
+            }
+            return formatted;
+        }
+
+        function calculateResult() {
+            var latex = mathField.latex();
+            if (!latex) return;
+            try {
+                var expr = latexToMathJs(latex);
+                var result = math.evaluate(expr, { e: math.e });
+                if (typeof result === 'function' || typeof result === 'undefined') return;
+                
+                var formatted = formatResult(result);
+                lastResultValue = result;
+                addToHistory(latex, formatted);
+                
+                var screen = document.getElementById('screen-area');
+                screen.style.setProperty('filter', 'brightness(1.2)');
+                setTimeout(() => screen.style.removeProperty('filter'), 100);
+
+                clearField(); 
+            } catch (e) {
+                previewSpan.innerText = "Error";
+                previewSpan.style.color = "#ef4444";
+                setTimeout(() => {
+                    previewSpan.style.color = "";
+                    tryLiveEvaluate();
+                }, 1000);
+            }
+        }
+
+        function addToHistory(expressionLatex, resultVal) {
+            if (emptyMsg) {
+                emptyMsg.remove();
+                emptyMsg = null;
+            }
+
+            historyData.push({ latex: expressionLatex, res: resultVal });
+            if (historyData.length > MAX_HISTORY_COUNT) {
+                historyData.shift();
+                if (historyList.firstChild) historyList.removeChild(historyList.firstChild);
+            }
+
+            var item = document.createElement('div');
+            item.className = 'history-item';
+            item.onclick = function() {
+                mathField.latex(expressionLatex);
+                mathField.focus();
+            };
+
+            var eqDiv = document.createElement('span');
+            eqDiv.className = 'history-eq';
+            
+            var resDiv = document.createElement('div');
+            resDiv.className = 'history-res';
+            resDiv.innerText = "= " + resultVal;
+
+            item.appendChild(eqDiv);
+            item.appendChild(resDiv);
+            historyList.appendChild(item);
+            MQ.StaticMath(eqDiv).latex(expressionLatex);
+            
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+        }
+    </script>
+    <script>
+        // 注册 Service Worker，让页面支持安装与离线缓存。
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('./sw.js').catch(function(error) {
+                    console.error('Service Worker 注册失败:', error);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

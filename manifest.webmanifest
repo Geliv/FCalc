@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "FCalc",
+  "short_name": "FCalc",
+  "description": "FCalc：支持公式输入、实时预览与历史记录的数学计算器。",
+  "start_url": "./MyCalc.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f2f7",
+  "theme_color": "#ff9f0a",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
