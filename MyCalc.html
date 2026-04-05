@@ -2,9 +2,12 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FCalc</title>
-    <meta name="theme-color" content="#ff9f0a">
+    <meta name="theme-color" content="#f2f2f7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="description" content="FCalc：支持公式输入、实时预览与历史记录的数学计算器。">
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
@@ -26,6 +29,9 @@
     <style>
         /* --- CSS 变量定义 (主题系统) --- */
         :root {
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
             /* 深色模式 */
             --bg-app: #000000;
             --bg-keyboard: #000000;
@@ -75,14 +81,23 @@
             --modal-text: #1f2937;
         }
 
+        html {
+            height: 100%;
+            background-color: #f2f2f7;
+            overscroll-behavior: none;
+        }
+
         /* 全局设置 */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-app);
             color: var(--text-primary);
+            width: 100%;
+            height: 100dvh;
             overflow: hidden;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
+            overscroll-behavior: none;
             transition: background-color 0.3s, color 0.3s;
         }
 
@@ -104,7 +119,14 @@
             min-height: 60px;
             cursor: text;
             white-space: nowrap;
-            flex-shrink: 0; 
+            min-width: max-content;
+        }
+
+        #math-field-track {
+            min-width: 100%;
+            width: max-content;
+            display: flex;
+            justify-content: flex-end;
         }
 
         .mq-editable-field {
@@ -174,6 +196,8 @@
             -webkit-overflow-scrolling: touch;
             /* 强制关闭平滑滚动，确保 JS 控制位置时瞬时到达 */
             scroll-behavior: auto !important;
+            overflow-y: hidden;
+            contain: layout style;
         }
         #math-scroll-container::-webkit-scrollbar {
             height: 2px;
@@ -246,11 +270,11 @@
         }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col" data-theme="light">
+<body class="flex flex-col" data-theme="light">
 
     <!-- 1. 历史记录区域 -->
-    <div id="history" class="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col pb-4 app-bg">
-        <div class="fixed top-4 left-4 z-30">
+    <div id="history" class="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-4 flex flex-col app-bg" style="padding-top: calc(1rem + var(--safe-area-top));">
+        <div class="fixed left-4 z-30" style="top: calc(1rem + var(--safe-area-top));">
             <button onclick="toggleSettings()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-500/20 text-sec transition-colors bg-transparent">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
@@ -272,16 +296,17 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
         </button>
 
-        <!-- 修改：右侧内边距减小为 pr-5 (20px) -->
-        <div id="math-scroll-container" class="w-full overflow-x-auto mb-1 pl-12 pr-5 flex">
-            <div id="math-field" class="ml-auto"></div>
+        <div id="math-scroll-container" class="w-full overflow-x-auto mb-1 pl-12 pr-5">
+            <div id="math-field-track">
+                <div id="math-field"></div>
+            </div>
         </div>
         
         <div id="preview-result" class="text-sec text-lg h-6 font-light pr-6 w-full text-right"></div>
     </div>
 
     <!-- 3. 键盘区域 -->
-    <div id="keyboard" class="keyboard-bg p-2 pb-8 grid grid-rows-6 gap-2 shrink-0" style="height: 60vh; max-height: 520px;">
+    <div id="keyboard" class="keyboard-bg p-2 grid grid-rows-6 gap-2 shrink-0" style="height: 60vh; max-height: 520px; padding-bottom: calc(0.5rem + var(--safe-area-bottom));">
         <div class="grid grid-cols-5 gap-2 row-span-1">
             <div class="btn btn-dark" onclick="writeCmd('\\sin')">sin</div>
             <div class="btn btn-dark" onclick="writeCmd('\\cos')">cos</div>
@@ -364,6 +389,7 @@
         var mathFieldSpan = document.getElementById('math-field');
         var previewSpan = document.getElementById('preview-result');
         var scrollContainer = document.getElementById('math-scroll-container');
+        var themeColorMeta = document.querySelector('meta[name="theme-color"]');
         
         var historyDiv = document.getElementById('history');
         var historyList = document.getElementById('history-list');
@@ -375,21 +401,35 @@
 
         var currentPrecision = 10;
         var currentTheme = 'light';
+        var pendingScrollFrame = null;
+
+        function syncMathScroll() {
+            if (pendingScrollFrame !== null) {
+                cancelAnimationFrame(pendingScrollFrame);
+            }
+
+            pendingScrollFrame = requestAnimationFrame(function() {
+                pendingScrollFrame = null;
+                var maxScrollLeft = Math.max(0, scrollContainer.scrollWidth - scrollContainer.clientWidth);
+                scrollContainer.scrollLeft = maxScrollLeft;
+            });
+        }
+
+        function updateSystemBars(theme) {
+            if (!themeColorMeta) return;
+
+            var color = theme === 'dark' ? '#000000' : '#f2f2f7';
+            themeColorMeta.setAttribute('content', color);
+            document.documentElement.style.backgroundColor = color;
+        }
 
         var mathField = MQ.MathField(mathFieldSpan, {
             spaceBehavesLikeTab: true,
             handlers: {
                 edit: function() {
                     tryLiveEvaluate();
-                    
-                    // --- 滚动优化逻辑 ---
-                    // 1. 同步滚动：立即执行，防止PC端和部分手机闪烁
-                    scrollContainer.scrollLeft = scrollContainer.scrollWidth;
-                    
-                    // 2. 异步补救：处理移动端可能的渲染延迟，确保长公式右侧完全可见
-                    setTimeout(() => {
-                       scrollContainer.scrollLeft = scrollContainer.scrollWidth;
-                    }, 0);
+                    // 合并到下一帧再滚动，避免输入时出现先左后右的重排闪烁。
+                    syncMathScroll();
                 },
                 enter: calculateResult
             }
@@ -425,9 +465,13 @@
         function setTheme(theme) {
             currentTheme = theme;
             document.body.setAttribute('data-theme', theme);
+            updateSystemBars(theme);
             updateThemeUI();
             mathField.blur();
-            setTimeout(() => mathField.focus(), 10);
+            setTimeout(() => {
+                mathField.focus();
+                syncMathScroll();
+            }, 10);
         }
 
         function updateThemeUI() {
@@ -448,6 +492,8 @@
         }
         
         updateThemeUI();
+        updateSystemBars(currentTheme);
+        syncMathScroll();
 
         function updatePrecision(val) {
             currentPrecision = parseInt(val);
@@ -480,17 +526,20 @@
                 mathField.cmd(cmd);
             }
             mathField.focus();
+            syncMathScroll();
         }
 
         function writeParens() {
             mathField.write('\\left(\\right)');
             mathField.keystroke('Left');
             mathField.focus();
+            syncMathScroll();
         }
 
         function writeAns() {
             if (lastResultValue !== null) mathField.write(lastResultValue.toString());
             mathField.focus();
+            syncMathScroll();
         }
 
         function backspace() {
@@ -511,12 +560,14 @@
                 }
             }
             mathField.focus();
+            syncMathScroll();
         }
 
         function clearField() {
             mathField.latex('');
             previewSpan.innerText = '';
             mathField.focus();
+            syncMathScroll();
         }
 
         function latexToMathJs(latex) {
@@ -636,6 +687,7 @@
             item.onclick = function() {
                 mathField.latex(expressionLatex);
                 mathField.focus();
+                syncMathScroll();
             };
 
             var eqDiv = document.createElement('span');
