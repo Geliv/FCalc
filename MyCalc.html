@@ -322,7 +322,7 @@
     </div>
 
     <!-- 3. 键盘区域 -->
-    <div id="keyboard" class="keyboard-bg p-2 grid grid-rows-6 gap-2 shrink-0 relative z-10" style="height: 60vh; max-height: 520px; padding-bottom: calc(0.5rem + var(--safe-area-bottom)); margin-bottom: calc(var(--safe-area-max-bottom) * -1);">
+    <div id="keyboard" class="keyboard-bg p-2 grid grid-rows-6 gap-2 shrink-0 relative z-10" style="height: clamp(320px, 50dvh, 460px); padding-bottom: calc(0.5rem + var(--safe-area-bottom)); margin-bottom: calc(var(--safe-area-max-bottom) * -1);">
         <div class="grid grid-cols-5 gap-2 row-span-1">
             <div class="btn btn-dark" onclick="writeCmd('\\sin')">sin</div>
             <div class="btn btn-dark" onclick="writeCmd('\\cos')">cos</div>
@@ -555,6 +555,24 @@
             toggleSettings();
         }
 
+        function formatInsertedResult(resultValue) {
+            var text = String(resultValue).replace('e', 'E');
+
+            // 负数插入到当前表达式中时，自动补括号，避免与前后运算符组合后产生歧义。
+            if (text.startsWith('-')) {
+                return '\\left(' + text + '\\right)';
+            }
+
+            return text;
+        }
+
+        function insertHistoryResult(resultValue) {
+            mathField.focus();
+            mathField.write(formatInsertedResult(resultValue));
+            tryLiveEvaluate();
+            syncMathScroll();
+        }
+
         function writeCmd(cmd) {
             const funcsWithParens = ['\\sin', '\\cos', '\\tan', '\\ln', '\\log'];
             if (cmd === '\\div') mathField.cmd('/');
@@ -695,7 +713,7 @@
                 
                 var formatted = formatResult(result);
                 lastResultValue = result;
-                addToHistory(latex, formatted);
+                addToHistory(latex, formatted, result);
                 
                 var screen = document.getElementById('screen-area');
                 screen.style.setProperty('filter', 'brightness(1.2)');
@@ -712,13 +730,13 @@
             }
         }
 
-        function addToHistory(expressionLatex, resultVal) {
+        function addToHistory(expressionLatex, resultVal, rawResult) {
             if (emptyMsg) {
                 emptyMsg.remove();
                 emptyMsg = null;
             }
 
-            historyData.push({ latex: expressionLatex, res: resultVal });
+            historyData.push({ latex: expressionLatex, res: resultVal, raw: rawResult });
             if (historyData.length > MAX_HISTORY_COUNT) {
                 historyData.shift();
                 if (historyList.firstChild) historyList.removeChild(historyList.firstChild);
@@ -726,10 +744,9 @@
 
             var item = document.createElement('div');
             item.className = 'history-item';
-            item.onclick = function() {
-                mathField.latex(expressionLatex);
-                mathField.focus();
-                syncMathScroll();
+            item.onpointerdown = function(event) {
+                event.preventDefault();
+                insertHistoryResult(rawResult);
             };
 
             var eqDiv = document.createElement('span');
