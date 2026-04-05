@@ -415,12 +415,30 @@
             });
         }
 
-        function updateSystemBars(theme) {
-            if (!themeColorMeta) return;
+        function applyThemeColor(color) {
+            if (!themeColorMeta) {
+                themeColorMeta = document.createElement('meta');
+                themeColorMeta.setAttribute('name', 'theme-color');
+                document.head.appendChild(themeColorMeta);
+            }
 
-            var color = theme === 'dark' ? '#000000' : '#f2f2f7';
-            themeColorMeta.setAttribute('content', color);
+            // Android 上安装后的 PWA 有时不会对 content 的原地修改立刻刷新，
+            // 直接替换节点会更容易触发系统栏颜色更新。
+            var nextMeta = themeColorMeta.cloneNode(false);
+            nextMeta.setAttribute('content', color);
+            themeColorMeta.replaceWith(nextMeta);
+            themeColorMeta = nextMeta;
             document.documentElement.style.backgroundColor = color;
+        }
+
+        function updateSystemBars(theme) {
+            var color = theme === 'dark' ? '#000000' : '#f2f2f7';
+            applyThemeColor(color);
+
+            // 再补一帧，兼容部分 Android PWA 首帧仍沿用旧 theme color 的情况。
+            requestAnimationFrame(function() {
+                applyThemeColor(color);
+            });
         }
 
         var mathField = MQ.MathField(mathFieldSpan, {
@@ -446,6 +464,14 @@
                 hiddenTextarea.setAttribute('readonly', 'readonly');
                 hiddenTextarea.setAttribute('inputmode', 'none');
             }
+
+            if (!document.hidden) {
+                updateSystemBars(currentTheme);
+            }
+        });
+
+        window.addEventListener('pageshow', function() {
+            updateSystemBars(currentTheme);
         });
 
         mathField.focus();
