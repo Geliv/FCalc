@@ -31,6 +31,10 @@
         :root {
             --safe-area-top: env(safe-area-inset-top, 0px);
             --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-max-bottom: max(
+                env(safe-area-inset-bottom, 0px),
+                env(safe-area-max-inset-bottom, 0px)
+            );
 
             /* 深色模式 */
             --bg-app: #000000;
@@ -99,6 +103,18 @@
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior: none;
             transition: background-color 0.3s, color 0.3s;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: var(--safe-area-max-bottom);
+            background-color: var(--bg-keyboard);
+            pointer-events: none;
+            z-index: 5;
         }
 
         /* 动态颜色类 */
@@ -273,7 +289,7 @@
 <body class="flex flex-col" data-theme="light">
 
     <!-- 1. 历史记录区域 -->
-    <div id="history" class="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-4 flex flex-col app-bg" style="padding-top: calc(1rem + var(--safe-area-top));">
+    <div id="history" class="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-4 flex flex-col app-bg relative z-10" style="padding-top: calc(1rem + var(--safe-area-top));">
         <div class="fixed left-4 z-30" style="top: calc(1rem + var(--safe-area-top));">
             <button onclick="toggleSettings()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-500/20 text-sec transition-colors bg-transparent">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -306,7 +322,7 @@
     </div>
 
     <!-- 3. 键盘区域 -->
-    <div id="keyboard" class="keyboard-bg p-2 grid grid-rows-6 gap-2 shrink-0" style="height: 60vh; max-height: 520px; padding-bottom: calc(0.5rem + var(--safe-area-bottom));">
+    <div id="keyboard" class="keyboard-bg p-2 grid grid-rows-6 gap-2 shrink-0 relative z-10" style="height: 60vh; max-height: 520px; padding-bottom: calc(0.5rem + var(--safe-area-bottom)); margin-bottom: calc(var(--safe-area-max-bottom) * -1);">
         <div class="grid grid-cols-5 gap-2 row-span-1">
             <div class="btn btn-dark" onclick="writeCmd('\\sin')">sin</div>
             <div class="btn btn-dark" onclick="writeCmd('\\cos')">cos</div>
