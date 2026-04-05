@@ -154,6 +154,10 @@
             border-left: 2px solid var(--cursor-color) !important;
             background-color: transparent !important;
         }
+
+        #math-field.is-previewing .mq-cursor {
+            display: none !important;
+        }
         
         .mq-selection {
             background-color: var(--selection-bg) !important;
@@ -419,6 +423,14 @@
         var currentTheme = 'light';
         var pendingScrollFrame = null;
 
+        function enterPreviewMode() {
+            mathFieldSpan.classList.add('is-previewing');
+        }
+
+        function exitPreviewMode() {
+            mathFieldSpan.classList.remove('is-previewing');
+        }
+
         function syncMathScroll() {
             if (pendingScrollFrame !== null) {
                 cancelAnimationFrame(pendingScrollFrame);
@@ -461,6 +473,7 @@
             spaceBehavesLikeTab: true,
             handlers: {
                 edit: function() {
+                    exitPreviewMode();
                     tryLiveEvaluate();
                     // 合并到下一帧再滚动，避免输入时出现先左后右的重排闪烁。
                     syncMathScroll();
@@ -494,6 +507,7 @@
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.btn') && !e.target.closest('.history-item') && !e.target.closest('#settings-modal button') && !e.target.closest('input')) {
                 if (!document.getElementById('settings-modal').classList.contains('hidden')) return;
+                exitPreviewMode();
                 mathField.focus();
             }
         });
@@ -509,6 +523,7 @@
             document.body.setAttribute('data-theme', theme);
             updateSystemBars(theme);
             updateThemeUI();
+            exitPreviewMode();
             mathField.blur();
             setTimeout(() => {
                 mathField.focus();
@@ -560,10 +575,13 @@
             mathField.latex(expressionLatex);
             tryLiveEvaluate();
             mathField.blur();
+            if (hiddenTextarea) hiddenTextarea.blur();
+            enterPreviewMode();
             syncMathScroll();
         }
 
         function writeCmd(cmd) {
+            exitPreviewMode();
             const funcsWithParens = ['\\sin', '\\cos', '\\tan', '\\ln', '\\log'];
             if (cmd === '\\div') mathField.cmd('/');
             else if (cmd === '\\times') mathField.cmd('\\times');
@@ -580,6 +598,7 @@
         }
 
         function writeParens() {
+            exitPreviewMode();
             mathField.write('\\left(\\right)');
             mathField.keystroke('Left');
             mathField.focus();
@@ -587,12 +606,14 @@
         }
 
         function writeAns() {
+            exitPreviewMode();
             if (lastResultValue !== null) mathField.write(lastResultValue.toString());
             mathField.focus();
             syncMathScroll();
         }
 
         function backspace() {
+            exitPreviewMode();
             var pre = mathField.latex();
             mathField.keystroke('Backspace');
             var post = mathField.latex();
@@ -614,6 +635,7 @@
         }
 
         function clearField() {
+            exitPreviewMode();
             mathField.latex('');
             previewSpan.innerText = '';
             mathField.focus();
@@ -736,6 +758,7 @@
             item.className = 'history-item';
             item.onpointerdown = function(event) {
                 event.preventDefault();
+                event.stopPropagation();
                 loadHistoryExpression(expressionLatex);
             };
 
