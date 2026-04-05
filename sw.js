@@ -1,13 +1,13 @@
-const CACHE_NAME = 'mycalc-cache-v2';
+const CACHE_NAME = 'mycalc-cache-v3';
 
 const APP_SHELL = [
     './',
     './index.html',
     './MyCalc.html',
-    './manifest.webmanifest',
-    './icons/icon.svg',
-    './icons/icon-192.png',
-    './icons/icon-512.png'
+    './manifest.webmanifest?v=3',
+    './icons/icon-v3.svg',
+    './icons/icon-192-v3.png',
+    './icons/icon-512-v3.png'
 ];
 
 const CDN_RESOURCES = [
