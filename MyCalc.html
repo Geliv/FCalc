@@ -555,21 +555,11 @@
             toggleSettings();
         }
 
-        function formatInsertedResult(resultValue) {
-            var text = String(resultValue).replace('e', 'E');
-
-            // 负数插入到当前表达式中时，自动补括号，避免与前后运算符组合后产生歧义。
-            if (text.startsWith('-')) {
-                return '\\left(' + text + '\\right)';
-            }
-
-            return text;
-        }
-
-        function insertHistoryResult(resultValue) {
-            mathField.focus();
-            mathField.write(formatInsertedResult(resultValue));
+        function loadHistoryExpression(expressionLatex) {
+            // 从历史记录回填整条公式，但先不进入编辑态，避免点击后光标残留。
+            mathField.latex(expressionLatex);
             tryLiveEvaluate();
+            mathField.blur();
             syncMathScroll();
         }
 
@@ -713,7 +703,7 @@
                 
                 var formatted = formatResult(result);
                 lastResultValue = result;
-                addToHistory(latex, formatted, result);
+                addToHistory(latex, formatted);
                 
                 var screen = document.getElementById('screen-area');
                 screen.style.setProperty('filter', 'brightness(1.2)');
@@ -730,13 +720,13 @@
             }
         }
 
-        function addToHistory(expressionLatex, resultVal, rawResult) {
+        function addToHistory(expressionLatex, resultVal) {
             if (emptyMsg) {
                 emptyMsg.remove();
                 emptyMsg = null;
             }
 
-            historyData.push({ latex: expressionLatex, res: resultVal, raw: rawResult });
+            historyData.push({ latex: expressionLatex, res: resultVal });
             if (historyData.length > MAX_HISTORY_COUNT) {
                 historyData.shift();
                 if (historyList.firstChild) historyList.removeChild(historyList.firstChild);
@@ -746,7 +736,7 @@
             item.className = 'history-item';
             item.onpointerdown = function(event) {
                 event.preventDefault();
-                insertHistoryResult(rawResult);
+                loadHistoryExpression(expressionLatex);
             };
 
             var eqDiv = document.createElement('span');

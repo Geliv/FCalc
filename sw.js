@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mycalc-cache-v8';
+const CACHE_NAME = 'mycalc-cache-v9';
 
 const APP_SHELL = [
     './',
