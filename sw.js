@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mycalc-cache-v10';
+const CACHE_NAME = 'mycalc-cache-v11';
 
 const APP_SHELL = [
     './',
@@ -6,35 +6,18 @@ const APP_SHELL = [
     './MyCalc.html',
     './manifest.webmanifest?v=7',
     './icons/icon-192.png',
-    './icons/icon-512.png'
-];
-
-const CDN_RESOURCES = [
-    'https://cdn.tailwindcss.com',
-    'https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js'
+    './icons/icon-512.png',
+    './vendor/tailwindcss.js',
+    './vendor/jquery.min.js',
+    './vendor/math.min.js',
+    './vendor/mathquill/mathquill.min.css',
+    './vendor/mathquill/mathquill.min.js'
 ];
 
 self.addEventListener('install', (event) => {
-    // 先缓存应用壳，保证主页面和基础资源可离线打开。
+    // 先缓存应用壳和本地 vendoring 的依赖，保证主页面可离线打开。
     event.waitUntil(
-        caches.open(CACHE_NAME).then(async (cache) => {
-            await cache.addAll(APP_SHELL);
-
-            // 额外预取跨域依赖，让页面在首次联网安装后也能离线打开。
-            await Promise.all(
-                CDN_RESOURCES.map(async (url) => {
-                    try {
-                        const response = await fetch(url, { mode: 'no-cors' });
-                        await cache.put(url, response);
-                    } catch (error) {
-                        console.warn('CDN 资源预缓存失败:', url, error);
-                    }
-                })
-            );
-        })
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
     );
     self.skipWaiting();
 });
