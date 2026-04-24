@@ -1,10 +1,10 @@
-const CACHE_NAME = 'mycalc-cache-v11';
+const CACHE_NAME = 'mycalc-cache-v12';
 
 const APP_SHELL = [
     './',
     './index.html',
     './MyCalc.html',
-    './manifest.webmanifest?v=7',
+    './manifest.webmanifest?v=8',
     './icons/icon-192.png',
     './icons/icon-512.png',
     './vendor/tailwindcss.js',

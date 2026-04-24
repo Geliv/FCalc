@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FCalc</title>
-    <meta name="theme-color" content="#f2f2f7">
+    <meta name="theme-color" content="#ffffff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="description" content="FCalc：支持公式输入、实时预览与历史记录的数学计算器。">
-    <link rel="manifest" href="./manifest.webmanifest?v=7">
+    <link rel="manifest" href="./manifest.webmanifest?v=8">
     <link rel="icon" href="./icons/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
     
@@ -35,6 +35,8 @@
                 env(safe-area-inset-bottom, 0px),
                 env(safe-area-max-inset-bottom, 0px)
             );
+            --system-bar-color: #ffffff;
+            --system-bar-cover-height: max(24px, var(--safe-area-max-bottom));
 
             /* 深色模式 */
             --bg-app: #000000;
@@ -83,11 +85,13 @@
             
             --modal-bg: #ffffff;
             --modal-text: #1f2937;
+            --system-bar-color: #ffffff;
         }
 
         html {
             height: 100%;
-            background-color: #f2f2f7;
+            background-color: var(--system-bar-color);
+            color-scheme: light;
             overscroll-behavior: none;
         }
 
@@ -105,14 +109,24 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
+        body[data-theme="dark"] {
+            --system-bar-color: #000000;
+            color-scheme: dark;
+        }
+
+        body[data-theme="light"] {
+            --system-bar-color: #ffffff;
+            color-scheme: light;
+        }
+
         body::after {
             content: "";
             position: fixed;
             left: 0;
             right: 0;
             bottom: 0;
-            height: var(--safe-area-max-bottom);
-            background-color: var(--bg-keyboard);
+            height: var(--system-bar-cover-height);
+            background-color: var(--system-bar-color);
             pointer-events: none;
             z-index: 5;
         }
@@ -443,7 +457,7 @@
             });
         }
 
-        function applyThemeColor(color) {
+        function applySystemBarTheme(color, scheme) {
             if (!themeColorMeta) {
                 themeColorMeta = document.createElement('meta');
                 themeColorMeta.setAttribute('name', 'theme-color');
@@ -457,15 +471,18 @@
             themeColorMeta.replaceWith(nextMeta);
             themeColorMeta = nextMeta;
             document.documentElement.style.backgroundColor = color;
+            document.documentElement.style.colorScheme = scheme;
+            document.body.style.colorScheme = scheme;
         }
 
         function updateSystemBars(theme) {
-            var color = theme === 'dark' ? '#000000' : '#f2f2f7';
-            applyThemeColor(color);
+            var color = theme === 'dark' ? '#000000' : '#ffffff';
+            var scheme = theme === 'dark' ? 'dark' : 'light';
+            applySystemBarTheme(color, scheme);
 
             // 再补一帧，兼容部分 Android PWA 首帧仍沿用旧 theme color 的情况。
             requestAnimationFrame(function() {
-                applyThemeColor(color);
+                applySystemBarTheme(color, scheme);
             });
         }
 
